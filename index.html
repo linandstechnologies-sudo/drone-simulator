@@ -7,11 +7,14 @@
 <!-- THREE JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<!-- BLOCKLY (STABLE UMD BUILD) -->
+<!-- BLOCKLY STABLE BUILD -->
 <script src="https://unpkg.com/blockly@10.4.3/blockly_compressed.js"></script>
 <script src="https://unpkg.com/blockly@10.4.3/blocks_compressed.js"></script>
 <script src="https://unpkg.com/blockly@10.4.3/javascript_compressed.js"></script>
 <script src="https://unpkg.com/blockly@10.4.3/msg/en.js"></script>
+
+<!-- remove favicon error -->
+<link rel="icon" href="data:,">
 
 <style>
 body {
@@ -49,13 +52,13 @@ scene.background = new THREE.Color(0x87CEEB);
 
 const camera = new THREE.PerspectiveCamera(
   75,
-  window.innerWidth*0.7/window.innerHeight,
+  window.innerWidth * 0.7 / window.innerHeight,
   0.1,
   1000
 );
 
 const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth*0.7, window.innerHeight);
+renderer.setSize(window.innerWidth * 0.7, window.innerHeight);
 document.getElementById("scene").appendChild(renderer.domElement);
 
 const light = new THREE.DirectionalLight(0xffffff,1);
@@ -218,25 +221,27 @@ Blockly.defineBlocksWithJsonArray([
 ]);
 
 /* =====================
-   CODE GENERATORS
+   GENERATOR (FIXED FOR v10)
 ===================== */
 
-Blockly.JavaScript['takeoff_block'] = function(block){
+const javascriptGenerator = Blockly.JavaScript;
+
+javascriptGenerator.forBlock['takeoff_block'] = function(block, generator) {
   const height = block.getFieldValue('HEIGHT');
   return `await takeoff(${height});\n`;
 };
 
-Blockly.JavaScript['move_block'] = function(block){
+javascriptGenerator.forBlock['move_block'] = function(block, generator) {
   const dist = block.getFieldValue('DIST');
   return `await moveForward(${dist});\n`;
 };
 
-Blockly.JavaScript['rotate_block'] = function(block){
+javascriptGenerator.forBlock['rotate_block'] = function(block, generator) {
   const deg = block.getFieldValue('DEG');
   return `await rotateDrone(${deg});\n`;
 };
 
-Blockly.JavaScript['land_block'] = function(){
+javascriptGenerator.forBlock['land_block'] = function(block, generator) {
   return `await land();\n`;
 };
 
@@ -245,7 +250,8 @@ Blockly.JavaScript['land_block'] = function(){
 ===================== */
 
 document.getElementById("runButton").onclick = async function(){
-  const code = Blockly.JavaScript.workspaceToCode(workspace);
+  const code = javascriptGenerator.workspaceToCode(workspace);
+
   try{
     await eval(`(async()=>{${code}})()`);
   }catch(e){
