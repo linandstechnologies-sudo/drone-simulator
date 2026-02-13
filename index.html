@@ -1,223 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Drone Simulator with Block Coding</title>
+
+  <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Blockly -->
   <script src="https://unpkg.com/blockly/blockly.min.js"></script>
 
   <style>
-    body { margin:0; overflow:hidden; display:flex; }
-    #scene { width:70%; height:100vh; }
-    #blocklyDiv { width:30%; height:100vh; }
-    #runButton {
-      position:absolute;
-      top:10px;
-      right:10px;
-      z-index:10;
-      padding:10px 20px;
-      font-size:16px;
+    body {
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
     }
-  </style>
-</head>
-<body>
 
-<button id="runButton">Run Code</button>
+    #scene {
+      width: 70%;
+      height: 100%;
+    }
 
-<div id="scene"></div>
-<div id="blocklyDiv"></div>
+    #blocklyArea {
+      width: 30%;
+      height: 100%;
+      position: relative;
+    }
 
-<script>
-/* ======================
-   THREE.JS DRONE ENGINE
-====================== */
+    #blocklyDiv {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB);
-
-const camera = new THREE.PerspectiveCamera(75, (window.innerWidth*0.7)/window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth*0.7, window.innerHeight);
-document.getElementById("scene").appendChild(renderer.domElement);
-
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(5,10,7);
-scene.add(light);
-
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(200,200),
-  new THREE.MeshPhongMaterial({color:0x228B22})
-);
-ground.rotation.x = -Math.PI/2;
-scene.add(ground);
-
-const drone = new THREE.Group();
-const body = new THREE.Mesh(
-  new THREE.BoxGeometry(1,0.3,1),
-  new THREE.MeshPhongMaterial({color:0x333333})
-);
-drone.add(body);
-scene.add(drone);
-
-let velocity = new THREE.Vector3();
-const gravity = -9.8;
-let thrust = 0;
-const mass = 1;
-
-/* ======================
-   DRONE API FUNCTIONS
-====================== */
-
-async function takeoff(height=5){
-  while(drone.position.y < height){
-    thrust = 12;
-    await sleep(50);
-  }
-  thrust = 9.8;
-}
-
-async function land(){
-  thrust = 0;
-  while(drone.position.y > 0.5){
-    await sleep(50);
-  }
-}
-
-async function moveForward(distance){
-  const start = drone.position.clone();
-  const dir = new THREE.Vector3(0,0,-1).applyQuaternion(drone.quaternion);
-
-  while(drone.position.distanceTo(start) < distance){
-    velocity.add(dir.multiplyScalar(0.05));
-    await sleep(50);
-  }
-}
-
-async function rotate(degrees){
-  let rotated = 0;
-  const target = THREE.MathUtils.degToRad(degrees);
-  while(Math.abs(rotated) < Math.abs(target)){
-    drone.rotation.y += 0.02 * Math.sign(target);
-    rotated += 0.02;
-    await sleep(20);
-  }
-}
-
-function sleep(ms){
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/* ======================
-   PHYSICS LOOP
-====================== */
-
-let prevTime = performance.now();
-
-function animate(){
-  requestAnimationFrame(animate);
-
-  const current = performance.now();
-  const dt = (current - prevTime)/1000;
-  prevTime = current;
-
-  velocity.y += gravity * dt;
-  velocity.y += thrust/mass * dt;
-  drone.position.add(velocity.clone().multiplyScalar(dt));
-
-  if(drone.position.y < 0.5){
-    drone.position.y = 0.5;
-    velocity.y = 0;
-  }
-
-  camera.position.set(
-    drone.position.x + 8,
-    drone.position.y + 6,
-    drone.position.z + 8
-  );
-  camera.lookAt(drone.position);
-
-  renderer.render(scene, camera);
-}
-animate();
-
-/* ======================
-   BLOCKLY SETUP
-====================== */
-
-const workspace = Blockly.inject('blocklyDiv', {
-  toolbox: `
-  <xml>
-    <block type="takeoff_block"></block>
-    <block type="move_forward_block"></block>
-    <block type="rotate_block"></block>
-    <block type="land_block"></block>
-  </xml>`
-});
-
-/* Custom Blocks */
-
-Blockly.defineBlocksWithJsonArray([
-  {
-    "type": "takeoff_block",
-    "message0": "Take off to height %1",
-    "args0":[{"type":"field_number","name":"HEIGHT","value":5}],
-    "previousStatement": null,
-    "nextStatement": null,
-    "colour": 200
-  },
-  {
-    "type": "move_forward_block",
-    "message0": "Move forward %1 meters",
-    "args0":[{"type":"field_number","name":"DIST","value":5}],
-    "previousStatement": null,
-    "nextStatement": null,
-    "colour": 120
-  },
-  {
-    "type": "rotate_block",
-    "message0": "Rotate %1 degrees",
-    "args0":[{"type":"field_number","name":"DEG","value":90}],
-    "previousStatement": null,
-    "nextStatement": null,
-    "colour": 60
-  },
-  {
-    "type": "land_block",
-    "message0": "Land",
-    "previousStatement": null,
-    "nextStatement": null,
-    "colour": 0
-  }
-]);
-
-/* Code Generators */
-
-Blockly.JavaScript['takeoff_block'] = function(block){
-  return `await takeoff(${block.getFieldValue('HEIGHT')});\n`;
-};
-
-Blockly.JavaScript['move_forward_block'] = function(block){
-  return `await moveForward(${block.getFieldValue('DIST')});\n`;
-};
-
-Blockly.JavaScript['rotate_block'] = function(block){
-  return `await rotate(${block.getFieldValue('DEG')});\n`;
-};
-
-Blockly.JavaScript['land_block'] = function(){
-  return `await land();\n`;
-};
-
-/* Run Button */
-
-document.getElementById("runButton").onclick = async function(){
-  const code = Blockly.JavaScript.workspaceToCode(workspace);
-  try{
-    await eval(`(async()=>{ ${code} })()`);
-  }catch(e){
-    alert(e);
-  }
-};
-</script>
-
-</body>
-</html>
+    #runButton {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      padding: 10px 20px;
+    }
